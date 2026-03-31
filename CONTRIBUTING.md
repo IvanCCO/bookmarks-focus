@@ -52,20 +52,8 @@ Do **not** manually edit `package.json` version or create tags.
 When your PR merges into `main`, semantic-release will:
 
 1. Compute the next version from commit messages
-2. Build and package the extension
-3. Create a GitHub release with generated notes and the `.zip` asset
-4. Publish the new version to the Chrome Web Store
-5. Commit the updated `CHANGELOG.md` and `package.json` back to `main`
+2. Build and package the extension zip
+3. Create a GitHub release with generated notes and `bookmarks-focus.zip` attached
+4. Commit the updated `CHANGELOG.md` and `package.json` back to `main`
 
-## Chrome Web Store credentials
-
-The `chrome-web-store` GitHub Actions environment must have these secrets:
-
-| Secret | Description |
-|--------|-------------|
-| `CHROME_EXTENSION_ID` | Extension ID from the developer dashboard |
-| `CHROME_CLIENT_ID` | OAuth2 client ID |
-| `CHROME_CLIENT_SECRET` | OAuth2 client secret |
-| `CHROME_REFRESH_TOKEN` | OAuth2 refresh token |
-
-Follow the [chrome-webstore-upload setup guide](https://github.com/nicowillis/chrome-webstore-upload#setup) to generate the OAuth2 credentials.
+Download the zip from the GitHub release and load it manually in `chrome://extensions`.
