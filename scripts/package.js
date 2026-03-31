@@ -25,6 +25,7 @@ output.on('close', () => {
   console.log(`Packaged: artifacts/bookmarks-focus.zip (${kb} KB)`);
 });
 
+output.on('error', (err) => { throw err; });
 archive.on('error', (err) => { throw err; });
 
 archive.pipe(output);
