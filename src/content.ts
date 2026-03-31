@@ -28,9 +28,6 @@ const FOCUS_STYLES = `
   /* Right sidebar: trending, "Who to follow", search suggestions */
   [data-testid="sidebarColumn"] { display: none !important; }
 
-  /* Promoted / sponsored tweets in the feed */
-  [data-testid="placementTracking"] { display: none !important; }
-
   /* Left nav: hide every item except the Bookmarks link */
   nav[aria-label="Primary"] > *:not(a[href="/i/bookmarks"]) {
     display: none !important;
