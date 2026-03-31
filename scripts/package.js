@@ -1,7 +1,6 @@
 /**
  * Packages the contents of dist/ into artifacts/bookmarks-focus.zip.
- * The zip is what gets uploaded to the Chrome Web Store and attached to
- * GitHub releases.
+ * The zip is attached to GitHub releases as a downloadable asset.
  */
 
 'use strict';
