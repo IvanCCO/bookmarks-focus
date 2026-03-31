@@ -1,62 +1,63 @@
 /**
  * X Bookmarks Focus — content script
  *
- * Behaviour:
- *  1. If the user is not on the bookmarks page, redirect to /i/bookmarks.
- *  2. On the bookmarks page, hide all distracting elements (right sidebar,
- *     trending, "Who to follow", etc.) while keeping the bookmarks feed and
- *     the left navigation (bookmark sidebar).
+ * Behaviour (when enabled):
+ *  1. If the user is not on an allowed page, redirect to /i/bookmarks.
+ *  2. Hide all distracting elements (right sidebar, trending, ads).
  *  3. Re-applies on every SPA navigation via MutationObserver and History API
- *     interception so the rules survive internal route changes.
+ *     interception so rules survive internal route changes.
+ *
+ * When disabled via the popup the DOM is restored to its original state and
+ * all observers are disconnected until re-enabled.
  */
 
 const BOOKMARKS_PATH = '/i/bookmarks';
 
 /**
- * A post URL looks like /{username}/status/{id} or /{username}/status/{id}/...
- * We allow these so the user can read bookmarked posts, but still block
- * everything else (home feed, explore, notifications, profiles, etc.).
+ * Post URLs look like /{username}/status/{id} — we allow these so the user
+ * can read bookmarked posts while still blocking everything else.
  */
 const STATUS_URL_PATTERN = /^\/[^/]+\/status\/\d+/;
 
-/**
- * Selectors for elements that should always be hidden when on any X page.
- * Prefer [data-testid] and [aria-label] attributes because they are more
- * stable than generated class names.
- */
 const DISTRACTION_SELECTORS: readonly string[] = [
-  // Right sidebar: trending, "Who to follow", search suggestions
-  '[data-testid="sidebarColumn"]',
-
-  // Promoted / sponsored tweets injected into the bookmarks feed
-  '[data-testid="placementTracking"]',
+  '[data-testid="sidebarColumn"]',    // right sidebar: trending / who to follow
+  '[data-testid="placementTracking"]', // promoted tweets
 ];
 
-/**
- * Returns true when the current URL is allowed:
- *  - The bookmarks page (/i/bookmarks)
- *  - An individual post page (/{user}/status/{id})
- */
+// ─── State ───────────────────────────────────────────────────────────────────
+
+/** Elements hidden by this script so we can restore them on disable. */
+let hiddenElements: HTMLElement[] = [];
+
+let observer: MutationObserver | null = null;
+let previousPath = window.location.pathname;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 function isOnAllowedPage(): boolean {
   const path = window.location.pathname;
   return path.startsWith(BOOKMARKS_PATH) || STATUS_URL_PATTERN.test(path);
 }
 
-/** Hides every element matched by the distraction selectors. */
 function hideDistractions(): void {
   for (const selector of DISTRACTION_SELECTORS) {
     document.querySelectorAll<HTMLElement>(selector).forEach((el) => {
       if (el.style.display !== 'none') {
         el.style.display = 'none';
+        hiddenElements.push(el);
       }
     });
   }
 }
 
-/**
- * Either redirects the user to bookmarks (if they're not on an allowed page)
- * or applies the distraction-hiding logic.
- */
+/** Removes inline display:none from every element this script has hidden. */
+function restoreDistractions(): void {
+  hiddenElements.forEach((el) => {
+    el.style.display = '';
+  });
+  hiddenElements = [];
+}
+
 function applyFocusMode(): void {
   if (!isOnAllowedPage()) {
     window.location.replace(BOOKMARKS_PATH);
@@ -65,53 +66,84 @@ function applyFocusMode(): void {
   hideDistractions();
 }
 
-// ─── Initial run ────────────────────────────────────────────────────────────
+// ─── Observer / history interception ─────────────────────────────────────────
 
-applyFocusMode();
-
-// ─── SPA navigation handling ─────────────────────────────────────────────────
-
-let previousPath = window.location.pathname;
-
-/**
- * Called whenever the DOM mutates.  Checks for path changes (SPA navigation)
- * and, on the bookmarks page, continuously hides any newly-inserted distracting
- * elements (X can re-insert them after route changes).
- */
-const observer = new MutationObserver(() => {
-  const currentPath = window.location.pathname;
-
-  if (currentPath !== previousPath) {
-    previousPath = currentPath;
-    applyFocusMode();
-  } else if (isOnAllowedPage()) {
-    // Re-hide in case X re-rendered the sidebar or injected an ad
-    hideDistractions();
-  }
-});
-
-observer.observe(document.body, { childList: true, subtree: true });
-
-// Handle browser back/forward navigation
-window.addEventListener('popstate', () => {
-  previousPath = window.location.pathname;
-  applyFocusMode();
-});
-
-// Intercept pushState / replaceState so programmatic SPA navigation is caught
-const originalPushState = history.pushState.bind(history);
+const originalPushState    = history.pushState.bind(history);
 const originalReplaceState = history.replaceState.bind(history);
 
-history.pushState = function (...args: Parameters<typeof history.pushState>) {
-  originalPushState(...args);
-  previousPath = window.location.pathname;
-  applyFocusMode();
-};
+function setupObserver(): void {
+  if (observer) return; // already running
 
-history.replaceState = function (
-  ...args: Parameters<typeof history.replaceState>
-) {
-  originalReplaceState(...args);
+  observer = new MutationObserver(() => {
+    const currentPath = window.location.pathname;
+    if (currentPath !== previousPath) {
+      previousPath = currentPath;
+      applyFocusMode();
+    } else if (isOnAllowedPage()) {
+      hideDistractions();
+    }
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+
+  window.addEventListener('popstate', onPopState);
+
+  history.pushState = function (...args: Parameters<typeof history.pushState>) {
+    originalPushState(...args);
+    previousPath = window.location.pathname;
+    applyFocusMode();
+  };
+
+  history.replaceState = function (
+    ...args: Parameters<typeof history.replaceState>
+  ) {
+    originalReplaceState(...args);
+    previousPath = window.location.pathname;
+    applyFocusMode();
+  };
+}
+
+function teardownObserver(): void {
+  if (!observer) return;
+
+  observer.disconnect();
+  observer = null;
+
+  window.removeEventListener('popstate', onPopState);
+
+  history.pushState    = originalPushState;
+  history.replaceState = originalReplaceState;
+}
+
+function onPopState(): void {
   previousPath = window.location.pathname;
   applyFocusMode();
-};
+}
+
+// ─── Enable / disable ────────────────────────────────────────────────────────
+
+function enable(): void {
+  applyFocusMode();
+  setupObserver();
+}
+
+function disable(): void {
+  teardownObserver();
+  restoreDistractions();
+}
+
+// ─── Message listener (from popup) ───────────────────────────────────────────
+
+chrome.runtime.onMessage.addListener(
+  (message: { type: string; enabled: boolean }) => {
+    if (message.type === 'SET_ENABLED') {
+      message.enabled ? enable() : disable();
+    }
+  },
+);
+
+// ─── Initialise from storage ─────────────────────────────────────────────────
+
+chrome.storage.sync.get({ enabled: true }, ({ enabled }) => {
+  if (enabled) enable();
+});

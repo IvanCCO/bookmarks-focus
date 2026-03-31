@@ -17,17 +17,3 @@
   display: none !important;
 }
 
-/* ── Expand the primary column to fill the freed space ── */
-[data-testid="primaryColumn"] {
-  max-width: 990px !important;
-  flex: 1 1 auto !important;
-}
-
-/*
- * Remove the fixed max-width constraint that X applies to the outer wrapper
- * so the bookmarks column can expand naturally when the sidebar is gone.
- */
-main[role="main"] > div,
-main[role="main"] > div > div {
-  max-width: 100% !important;
-}

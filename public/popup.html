@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>X Bookmarks Focus</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 260px;
+      background: #0F1419;
+      color: #E7E9EA;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 22px 20px 20px;
+      user-select: none;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-bottom: 22px;
+    }
+
+    .header-icon {
+      width: 28px;
+      height: 28px;
+      background: #1D9BF0;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .header-icon svg {
+      width: 16px;
+      height: 16px;
+      fill: white;
+    }
+
+    .header-text h1 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #E7E9EA;
+      line-height: 1.2;
+    }
+
+    .header-text p {
+      font-size: 11px;
+      color: #71767B;
+      margin-top: 1px;
+    }
+
+    /* ── Toggle button ── */
+    .toggle-wrap {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+
+    #toggle {
+      width: 200px;
+      height: 50px;
+      border: none;
+      border-radius: 25px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      transition: background 0.22s ease, box-shadow 0.22s ease, transform 0.12s ease;
+      outline: none;
+    }
+
+    #toggle:hover  { transform: scale(1.035); }
+    #toggle:active { transform: scale(0.96); }
+
+    /* Enabled state — X blue */
+    #toggle.is-enabled {
+      background: #1D9BF0;
+      color: #fff;
+      box-shadow: 0 4px 18px rgba(29, 155, 240, 0.45);
+    }
+
+    /* Disabled state — red */
+    #toggle.is-disabled {
+      background: #E0245E;
+      color: #fff;
+      box-shadow: 0 4px 18px rgba(224, 36, 94, 0.4);
+    }
+
+    /* Indicator dot */
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.9);
+      transition: opacity 0.2s;
+      flex-shrink: 0;
+    }
+
+    #toggle.is-disabled .dot {
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    /* ── Status line ── */
+    #status {
+      text-align: center;
+      font-size: 11.5px;
+      color: #71767B;
+      line-height: 1.4;
+      min-height: 16px;
+      transition: color 0.2s;
+    }
+
+    /* ── Divider ── */
+    .divider {
+      border: none;
+      border-top: 1px solid #2F3336;
+      margin: 16px 0 14px;
+    }
+
+    /* ── Footer note ── */
+    .footer {
+      font-size: 10.5px;
+      color: #3E4347;
+      text-align: center;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="header-icon">
+      <!-- bookmark icon -->
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 2h16a1 1 0 0 1 1 1v18.382a.5.5 0 0 1-.776.416L12 17.236l-8.224 4.562A.5.5 0 0 1 3 21.382V3a1 1 0 0 1 1-1z"/>
+      </svg>
+    </div>
+    <div class="header-text">
+      <h1>X Bookmarks Focus</h1>
+      <p>Distraction-free reading</p>
+    </div>
+  </div>
+
+  <div class="toggle-wrap">
+    <button id="toggle" class="is-enabled">
+      <span class="dot"></span>
+      <span id="label">Enabled</span>
+    </button>
+  </div>
+
+  <p id="status">Redirecting to bookmarks &amp; hiding distractions</p>
+
+  <hr class="divider" />
+
+  <p class="footer">Allows bookmarks page&nbsp;+&nbsp;individual posts only</p>
+
+  <script src="popup.js"></script>
+</body>
+</html>

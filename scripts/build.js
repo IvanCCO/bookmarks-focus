@@ -28,13 +28,11 @@ function copyFile(src, dest) {
   fs.copyFileSync(src, dest);
 }
 
-/** Copy static assets (manifest, CSS, icons) into dist/. */
+/** Copy static assets (manifest, CSS, HTML, icons) into dist/. */
 function copyAssets() {
-  copyFile(path.join(ROOT, 'manifest.json'), path.join(DIST, 'manifest.json'));
-  copyFile(
-    path.join(ROOT, 'public', 'content.css'),
-    path.join(DIST, 'content.css'),
-  );
+  copyFile(path.join(ROOT, 'manifest.json'),          path.join(DIST, 'manifest.json'));
+  copyFile(path.join(ROOT, 'public', 'content.css'),  path.join(DIST, 'content.css'));
+  copyFile(path.join(ROOT, 'public', 'popup.html'),   path.join(DIST, 'popup.html'));
 
   const iconsDir = path.join(ROOT, 'icons');
   if (fs.existsSync(iconsDir)) {
@@ -74,7 +72,13 @@ async function build() {
       outfile: path.join(DIST, 'background.js'),
     });
 
-    await Promise.all([contentCtx.watch(), backgroundCtx.watch()]);
+    const popupCtx = await esbuild.context({
+      ...sharedOptions,
+      entryPoints: [path.join(ROOT, 'src', 'popup.ts')],
+      outfile: path.join(DIST, 'popup.js'),
+    });
+
+    await Promise.all([contentCtx.watch(), backgroundCtx.watch(), popupCtx.watch()]);
     console.log('Watching for changes…');
   } else {
     await Promise.all([
@@ -87,6 +91,11 @@ async function build() {
         ...sharedOptions,
         entryPoints: [path.join(ROOT, 'src', 'background.ts')],
         outfile: path.join(DIST, 'background.js'),
+      }),
+      esbuild.build({
+        ...sharedOptions,
+        entryPoints: [path.join(ROOT, 'src', 'popup.ts')],
+        outfile: path.join(DIST, 'popup.js'),
       }),
     ]);
 
