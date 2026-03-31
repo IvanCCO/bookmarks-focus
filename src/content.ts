@@ -10,10 +10,11 @@
 const BOOKMARKS_PATH = '/i/bookmarks';
 
 /**
- * Post URLs: /{username}/status/{id}
- * These are allowed so the user can open individual bookmarked posts.
+ * Allowed URL patterns beyond /i/bookmarks:
+ *  - /{username}/status/{id}   — individual posts
+ *  - /{username}/article/{id}  — long-form articles
  */
-const STATUS_URL_PATTERN = /^\/[^/]+\/status\/\d+/;
+const ALLOWED_URL_PATTERN = /^\/[^/]+\/(status|article)\/\d+/;
 
 /**
  * CSS injected when focus mode is active.
@@ -47,7 +48,7 @@ let previousPath = window.location.pathname;
 
 function isOnAllowedPage(): boolean {
   const path = window.location.pathname;
-  return path.startsWith(BOOKMARKS_PATH) || STATUS_URL_PATTERN.test(path);
+  return path.startsWith(BOOKMARKS_PATH) || ALLOWED_URL_PATTERN.test(path);
 }
 
 /** Adds the focus-mode stylesheet to <head> (idempotent). */
