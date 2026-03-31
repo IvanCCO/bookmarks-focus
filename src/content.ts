@@ -1,34 +1,48 @@
 /**
  * X Bookmarks Focus — content script
  *
- * Behaviour (when enabled):
- *  1. If the user is not on an allowed page, redirect to /i/bookmarks.
- *  2. Hide all distracting elements (right sidebar, trending, ads).
- *  3. Re-applies on every SPA navigation via MutationObserver and History API
- *     interception so rules survive internal route changes.
- *
- * When disabled via the popup the DOM is restored to its original state and
- * all observers are disconnected until re-enabled.
+ * All hiding is done by injecting/removing a single <style> element so that:
+ *  - CSS applies instantly to every matching element (existing and future).
+ *  - Disabling the extension fully restores the page with one removeChild().
+ *  - No DOM walking is needed for hiding; the observer only handles redirects.
  */
 
 const BOOKMARKS_PATH = '/i/bookmarks';
 
 /**
- * Post URLs look like /{username}/status/{id} — we allow these so the user
- * can read bookmarked posts while still blocking everything else.
+ * Post URLs: /{username}/status/{id}
+ * These are allowed so the user can open individual bookmarked posts.
  */
 const STATUS_URL_PATTERN = /^\/[^/]+\/status\/\d+/;
 
-const DISTRACTION_SELECTORS: readonly string[] = [
-  '[data-testid="sidebarColumn"]',    // right sidebar: trending / who to follow
-  '[data-testid="placementTracking"]', // promoted tweets
-];
+/**
+ * CSS injected when focus mode is active.
+ *
+ * Key selector:
+ *   nav[aria-label="Primary"] > *:not(a[href="/i/bookmarks"])
+ *
+ * The nav items are direct <a> / <button> children of the <nav> element,
+ * so a single direct-child selector hides every entry except Bookmarks.
+ */
+const FOCUS_STYLES = `
+  /* Right sidebar: trending, "Who to follow", search suggestions */
+  [data-testid="sidebarColumn"] { display: none !important; }
+
+  /* Promoted / sponsored tweets in the feed */
+  [data-testid="placementTracking"] { display: none !important; }
+
+  /* Left nav: hide every item except the Bookmarks link */
+  nav[aria-label="Primary"] > *:not(a[href="/i/bookmarks"]) {
+    display: none !important;
+  }
+
+  /* Post / Tweet button */
+  [data-testid="SideNav_NewTweet_Button"] { display: none !important; }
+`;
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
-/** Elements hidden by this script so we can restore them on disable. */
-let hiddenElements: HTMLElement[] = [];
-
+let styleEl: HTMLStyleElement | null = null;
 let observer: MutationObserver | null = null;
 let previousPath = window.location.pathname;
 
@@ -39,31 +53,29 @@ function isOnAllowedPage(): boolean {
   return path.startsWith(BOOKMARKS_PATH) || STATUS_URL_PATTERN.test(path);
 }
 
-function hideDistractions(): void {
-  for (const selector of DISTRACTION_SELECTORS) {
-    document.querySelectorAll<HTMLElement>(selector).forEach((el) => {
-      if (el.style.display !== 'none') {
-        el.style.display = 'none';
-        hiddenElements.push(el);
-      }
-    });
-  }
+/** Adds the focus-mode stylesheet to <head> (idempotent). */
+function injectStyles(): void {
+  if (styleEl) return;
+  styleEl = document.createElement('style');
+  styleEl.id = 'x-bookmarks-focus-styles';
+  styleEl.textContent = FOCUS_STYLES;
+  (document.head ?? document.documentElement).appendChild(styleEl);
 }
 
-/** Removes inline display:none from every element this script has hidden. */
-function restoreDistractions(): void {
-  hiddenElements.forEach((el) => {
-    el.style.display = '';
-  });
-  hiddenElements = [];
+/** Removes the focus-mode stylesheet, instantly restoring all hidden elements. */
+function removeStyles(): void {
+  styleEl?.remove();
+  styleEl = null;
 }
 
+/**
+ * Redirects to bookmarks if the current page is not allowed.
+ * CSS handles all element hiding — nothing to do here for that.
+ */
 function applyFocusMode(): void {
   if (!isOnAllowedPage()) {
     window.location.replace(BOOKMARKS_PATH);
-    return;
   }
-  hideDistractions();
 }
 
 // ─── Observer / history interception ─────────────────────────────────────────
@@ -71,21 +83,24 @@ function applyFocusMode(): void {
 const originalPushState    = history.pushState.bind(history);
 const originalReplaceState = history.replaceState.bind(history);
 
-function setupObserver(): void {
-  if (observer) return; // already running
+function onPopState(): void {
+  previousPath = window.location.pathname;
+  applyFocusMode();
+}
 
+function setupObserver(): void {
+  if (observer) return;
+
+  // Only need to watch for path changes to trigger redirects.
   observer = new MutationObserver(() => {
     const currentPath = window.location.pathname;
     if (currentPath !== previousPath) {
       previousPath = currentPath;
       applyFocusMode();
-    } else if (isOnAllowedPage()) {
-      hideDistractions();
     }
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
-
   window.addEventListener('popstate', onPopState);
 
   history.pushState = function (...args: Parameters<typeof history.pushState>) {
@@ -105,31 +120,24 @@ function setupObserver(): void {
 
 function teardownObserver(): void {
   if (!observer) return;
-
   observer.disconnect();
   observer = null;
-
   window.removeEventListener('popstate', onPopState);
-
   history.pushState    = originalPushState;
   history.replaceState = originalReplaceState;
-}
-
-function onPopState(): void {
-  previousPath = window.location.pathname;
-  applyFocusMode();
 }
 
 // ─── Enable / disable ────────────────────────────────────────────────────────
 
 function enable(): void {
+  injectStyles();
   applyFocusMode();
   setupObserver();
 }
 
 function disable(): void {
   teardownObserver();
-  restoreDistractions();
+  removeStyles();
 }
 
 // ─── Message listener (from popup) ───────────────────────────────────────────
