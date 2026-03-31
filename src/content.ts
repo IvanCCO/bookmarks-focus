@@ -7,14 +7,7 @@
  *  - No DOM walking is needed for hiding; the observer only handles redirects.
  */
 
-const BOOKMARKS_PATH = '/i/bookmarks';
-
-/**
- * Allowed URL patterns beyond /i/bookmarks:
- *  - /{username}/status/{id}   — individual posts
- *  - /{username}/article/{id}  — long-form articles
- */
-const ALLOWED_URL_PATTERN = /^\/[^/]+\/(status|article)\/\d+/;
+import { BOOKMARKS_PATH, isOnAllowedPage } from './utils';
 
 /**
  * CSS injected when focus mode is active.
@@ -46,11 +39,6 @@ let previousPath = window.location.pathname;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function isOnAllowedPage(): boolean {
-  const path = window.location.pathname;
-  return path.startsWith(BOOKMARKS_PATH) || ALLOWED_URL_PATTERN.test(path);
-}
-
 /** Adds the focus-mode stylesheet to <head> (idempotent). */
 function injectStyles(): void {
   if (styleEl) return;
@@ -71,7 +59,7 @@ function removeStyles(): void {
  * CSS handles all element hiding — nothing to do here for that.
  */
 function applyFocusMode(): void {
-  if (!isOnAllowedPage()) {
+  if (!isOnAllowedPage(window.location.pathname)) {
     window.location.replace(BOOKMARKS_PATH);
   }
 }
@@ -143,7 +131,7 @@ function disable(): void {
 chrome.runtime.onMessage.addListener(
   (message: { type: string; enabled: boolean }) => {
     if (message.type === 'SET_ENABLED') {
-      message.enabled ? enable() : disable();
+      if (message.enabled) { enable(); } else { disable(); }
     }
   },
 );
